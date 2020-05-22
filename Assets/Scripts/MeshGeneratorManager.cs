@@ -6,7 +6,7 @@ public class MeshGeneratorManager : MonoBehaviour
     [SerializeField] private Material material;
     [SerializeField] private Camera camera;
     
-    [SerializeField] private MarchingCubesMeshGeneratorAsync generator;
+    [SerializeField] private MarchingCubesMeshGenerator generator;
 
     private IEnumerator Start()
     {
@@ -28,10 +28,11 @@ public class MeshGeneratorManager : MonoBehaviour
 
     public void GenerateChunk(Vector3Int cell)
     {
+        /*
         var go = new GameObject("Chunk " + cell);
         go.transform.SetParent(this.transform);
         
-        var offset = Vector3.Scale(cell, generator.Resolution);
+        var offset = cell;
         go.transform.localPosition = offset;
         go.transform.localScale = Vector3.one;
         generator.Offset = offset;
@@ -43,6 +44,7 @@ public class MeshGeneratorManager : MonoBehaviour
         var renderer = go.AddComponent<MeshRenderer>();
         renderer.material = material;
 
-        generator.GenerateMesh(mesh);
+        generator.GenerateMeshAsync(mesh);
+        */
     }
 }

@@ -9,7 +9,7 @@ public class MarchCubeProbe : MonoBehaviour
     
     private void OnValidate()
     {
-        var gener = GetComponent<MarchingCubesMeshGeneratorAsync>();
+        var gener = GetComponent<MarchingCubesMeshGenerator>();
 
         res = gener.getIndexMask(index);
     }
