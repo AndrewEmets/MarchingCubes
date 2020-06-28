@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class CubeSDF : SDFShape
 {
-    [SerializeField] private Vector3 size;
+    [SerializeField] private Vector3 size = Vector3.one;
     [SerializeField] private float radius;
 
     public override Bounds GetLocalBounds()
@@ -16,18 +16,19 @@ public class CubeSDF : SDFShape
 
     protected override float GetSDFInternal(Vector3 p)
     {        
-        var q = p.Abs() - size;
-        var res = Vector3.Magnitude(q.Max(0));
+        var q = Vector3Math.Abs(p) - size;
+        var res = Vector3.Magnitude(Vector3Math.Max(q,0));
         res += Math.Min(Math.Max(q.x, Math.Max(q.y,q.z)), 0);
         res -= radius;
 
         return res;
     }
 
-    private void OnDrawGizmos() 
+    private void OnDrawGizmosSelected() 
     {
         Gizmos.matrix = transform.localToWorldMatrix;
-        Gizmos.DrawWireCube(Vector3.zero, (size + Vector3.one * radius)*2f);
+        Gizmos.color = new Color(1,1,1,0.5f);
+        Gizmos.DrawCube(Vector3.zero, (size + Vector3.one * radius)*2f);
     }
 }
 

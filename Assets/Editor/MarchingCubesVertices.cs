@@ -3,24 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using MarchingCubes.Entities;
 using UnityEditor;
 using UnityEngine;
-
-[Serializable]
-public class VerticesArray
-{
-    public int[] vertIndices;
-}
-
-public class TrianglesData
-{
-    public int[] verticesIndices;
-
-    public TrianglesData(int[] verticesIndices)
-    {
-        this.verticesIndices = verticesIndices;
-    }
-}
 
 [CreateAssetMenu(menuName = "Marching cubes vertices")]
 public class MarchingCubesVertices : ScriptableObject

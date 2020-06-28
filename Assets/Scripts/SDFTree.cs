@@ -2,111 +2,112 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SDFTree
+namespace ShapeBuilder
 {
-    public SDFNode rootNode;
-
-    public float GetSDF(Vector3 p)
+    public class SDFTree
     {
-        return rootNode.GetSDF(p);
-    }
+        public SDFNode rootNode;
 
-    public Bounds GetBounds()
-    {
-        return rootNode.GetBounds();
-    }
-}
-
-public abstract class SDFNode
-{
-    public List<ProbePointModifier> pointModifiers = new List<ProbePointModifier>();
-    public List<SDFModifier> sdfModifiers = new List<SDFModifier>();
-
-    public float GetSDF(Vector3 pos)
-    {
-        for (int i = 0; i < pointModifiers.Count; i++)
+        public float GetSDF(Vector3 p)
         {
-            pos = pointModifiers[i].ModifyPoint(pos);
+            return rootNode.GetSDF(p);
         }
 
-        var res = GetSDFInternal(pos);
-
-        for (int i = 0; i < sdfModifiers.Count; i++)
+        public Bounds GetBounds()
         {
-            res = sdfModifiers[i].ModifySDF(res);
+            return rootNode.GetBounds();
         }
-
-        return res;
     }
 
-    protected abstract float GetSDFInternal(Vector3 pos);
-
-    public abstract Bounds GetBounds();
-}
-
-public class SDFNodeSingleShape : SDFNode
-{
-    public SDFShape shape;
-
-    public override Bounds GetBounds()
+    public abstract class SDFNode
     {
-        var localBounds = shape.GetLocalBounds();
-        var bounds = new Bounds(shape.gameObject.transform.TransformPoint(localBounds.center), Vector3.zero);
+        public List<ProbePointModifier> pointModifiers = new List<ProbePointModifier>();
+        public List<SDFModifier> sdfModifiers = new List<SDFModifier>();
 
-        for (int i = 0; i <= 1; i++)
-        for (int j = 0; j <= 1; j++)
-        for (int k = 0; k <= 1; k++)
+        public float GetSDF(Vector3 pos)
         {
-            var p = localBounds.min + Vector3.Scale(new Vector3(i,j,k), localBounds.size);
-            
-            Debug.DrawRay(p, Vector3.up*0.05f, Color.blue, 0.5f);
+            for (int i = 0; i < pointModifiers.Count; i++)
+            {
+                pos = pointModifiers[i].ModifyPoint(pos);
+            }
 
-            p = shape.gameObject.transform.TransformPoint(p);
-            Debug.DrawRay(p, Vector3.up*0.05f, Color.yellow);
+            var res = GetSDFInternal(pos);
 
-            bounds.Encapsulate(p);
+            for (int i = 0; i < sdfModifiers.Count; i++)
+            {
+                res = sdfModifiers[i].ModifySDF(pos, res);
+            }
+
+            return res;
         }
 
-        //bounds = GeometryUtility.CalculateBounds(corners, shape.gameObject.transform.localToWorldMatrix);
+        protected abstract float GetSDFInternal(Vector3 pos);
 
-        return bounds;
+        public abstract Bounds GetBounds();
     }
 
-    protected override float GetSDFInternal(Vector3 pos)
+    public class SDFNodeSingleShape : SDFNode
     {
-        var res = shape.GetSDF(pos);
-        return res;
-    }
-}
+        public SDFShape shape;
 
-public class SDFNodeShapeGroup : SDFNode
-{
-    public List<SDFNode> childShapes = new List<SDFNode>();
-
-    public Func<float, float, float> combine;
-
-    public override Bounds GetBounds()
-    {
-        var bounds = childShapes[0].GetBounds();
-
-        for (int i = 1; i < childShapes.Count; i++)
+        public override Bounds GetBounds()
         {
-            bounds.Encapsulate(childShapes[i].GetBounds());
+            var localBounds = shape.GetLocalBounds();
+            var bounds = new Bounds(shape.gameObject.transform.TransformPoint(localBounds.center), Vector3.zero);
+
+            for (int i = 0; i <= 1; i++)
+            for (int j = 0; j <= 1; j++)
+            for (int k = 0; k <= 1; k++)
+            {
+                var p = localBounds.min + Vector3.Scale(new Vector3(i, j, k), localBounds.size);
+
+                Debug.DrawRay(p, Vector3.up * 0.05f, Color.blue, 0.5f);
+
+                p = shape.gameObject.transform.TransformPoint(p);
+                Debug.DrawRay(p, Vector3.up * 0.05f, Color.yellow);
+
+                bounds.Encapsulate(p);
+            }
+
+            return bounds;
         }
 
-        return bounds;
+        protected override float GetSDFInternal(Vector3 pos)
+        {
+            var res = shape.GetSDF(pos);
+            return res;
+        }
     }
 
-    protected override float GetSDFInternal(Vector3 pos)
+    public class SDFNodeShapeGroup : SDFNode
     {
-        var res = childShapes[0].GetSDF(pos);
+        public List<SDFNode> childShapes = new List<SDFNode>();
 
-        for (int i = 1; i < childShapes.Count; i++)
+        public Func<float, float, float> combine;
+
+        public override Bounds GetBounds()
         {
-            var r = childShapes[i].GetSDF(pos);
-            res = combine(res, r);       
+            var bounds = childShapes[0].GetBounds();
+
+            for (int i = 1; i < childShapes.Count; i++)
+            {
+                bounds.Encapsulate(childShapes[i].GetBounds());
+            }
+
+            return bounds;
         }
 
-        return res;
+        protected override float GetSDFInternal(Vector3 pos)
+        {
+            var res = childShapes[0].GetSDF(pos);
+
+            for (int i = 1; i < childShapes.Count; i++)
+            {
+                var r = childShapes[i].GetSDF(pos);
+                res = combine(res, r);
+            }
+
+            return res;
+        }
     }
 }

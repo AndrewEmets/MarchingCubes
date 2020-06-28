@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class SphereSDF : SDFShape
 {
-    [SerializeField] private float sphereRadius;
+    [SerializeField] private float sphereRadius = 1f;
 
     public override Bounds GetLocalBounds()
     {
@@ -14,10 +14,11 @@ public class SphereSDF : SDFShape
         return p.magnitude - sphereRadius;
     }
 
-    private void OnDrawGizmos() 
+    private void OnDrawGizmosSelected() 
     {
         Gizmos.matrix = gameObject.transform.localToWorldMatrix;
-        Gizmos.DrawWireSphere(Vector3.zero, sphereRadius);        
+        Gizmos.color = new Color(1, 1, 1, 0.5f);
+        Gizmos.DrawSphere(Vector3.zero, sphereRadius);
     }
 }
 

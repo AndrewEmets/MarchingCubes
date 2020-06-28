@@ -1,4 +1,5 @@
 using System;
+using MarchingCubes.Generator;
 using UnityEngine;
 
 public abstract class SDFShape : MonoBehaviour
@@ -9,16 +10,19 @@ public abstract class SDFShape : MonoBehaviour
 
     private float maxScale;
 
+    private Matrix4x4 worldToLocalMatrix;
+
+    public void Init()
+    {
+        worldToLocalMatrix = gameObject.transform.worldToLocalMatrix;
+        var scale = gameObject.transform.localScale;
+        maxScale = Math.Max(Math.Max(scale.x, scale.y), scale.z);
+    }
+
     public float GetSDF(Vector3 p)
     {
-        if (gameObject.transform.hasChanged)
-        {
-            var scale = gameObject.transform.localScale;
-            maxScale = Math.Max(Math.Max(scale.x, scale.y), scale.z);
-        }
-
-        p = gameObject.transform.InverseTransformPoint(p);
-        var result = GetSDFInternal(p)*maxScale;
+        p = worldToLocalMatrix.MultiplyPoint3x4(p);
+        var result = GetSDFInternal(p) * maxScale;
 
         return result;
     }

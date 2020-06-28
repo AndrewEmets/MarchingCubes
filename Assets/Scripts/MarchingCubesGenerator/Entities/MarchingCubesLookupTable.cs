@@ -1,3 +1,5 @@
+using MarchingCubes.Entities;
+
 public static class MarchingCubesLookupTable
 {
 	public static TrianglesData[] TrianglesData = new[]

@@ -6,6 +6,8 @@
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
+        _FresnelPower("Fresnel power", float) = 1
+        _FresnelColor("Fresnel color", Color) = (1,1,1,1)
     }
     SubShader
     {
@@ -24,22 +26,34 @@
         struct Input
         {
             float2 uv_MainTex;
-            float4 vertColor:COLOR;
+            float4 vertColor : COLOR;
+            float3 worldNormal;
+            float3 viewDir;
         };
 
         half _Glossiness;
         half _Metallic;
         fixed4 _Color;
+        float _FresnelPower;
+        fixed4 _FresnelColor;
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
-            // Albedo comes from a texture tinted by color
             fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color * IN.vertColor;
             o.Albedo = c.rgb;
-            // Metallic and smoothness come from slider variables
             o.Metallic = _Metallic;
             o.Smoothness = _Glossiness;
             o.Alpha = c.a;
+
+            {
+                float d = dot(IN.worldNormal, IN.viewDir);
+                d = saturate(d);
+                d = 1 - d;
+                d = pow(d, max(0, _FresnelPower));
+                //o.Emission = _FresnelColor * d;
+                o.Metallic *= d;
+                o.Smoothness *= d;
+            }
         }
         ENDCG
     }
