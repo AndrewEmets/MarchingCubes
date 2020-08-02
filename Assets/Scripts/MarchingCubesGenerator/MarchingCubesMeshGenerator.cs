@@ -43,14 +43,23 @@ namespace MarchingCubes.Generator
 
         private Func<Vector3, float> getSdfFunc;
         private Bounds bounds;
+        private Vector3 finalOffset;
         private Vec3Int resolution;
         private Matrix4x4 gridToWorldMatrix;
         private Mesh mesh;
 
-        public void GenerateMesh(Mesh mesh, Func<Vector3, float> getSDF, float step, Bounds bounds)
+        public bool isBusy = false;
+
+        public void GenerateMesh(Mesh mesh, Func<Vector3, float> getSDF, float step, Bounds bounds, Vector3 finalOffset = default)
         {
+            if (isBusy)
+            {
+                throw  new Exception("Generation is busy. Errors might occure");
+            }
+            
             this.mesh = mesh;
             this.bounds = bounds;
+            this.finalOffset = finalOffset;
             getSdfFunc = getSDF;
 
             this.resolution = new Vec3Int(
@@ -58,13 +67,14 @@ namespace MarchingCubes.Generator
                 Mathf.CeilToInt(bounds.size.y / step), 
                 Mathf.CeilToInt(bounds.size.z / step));
 
-            Vector3 scale = new Vector3(
+            var scale = new Vector3(
                 bounds.size.x / resolution.x, 
                 bounds.size.y / resolution.y, 
                 bounds.size.z / resolution.z);
 
             gridToWorldMatrix = Matrix4x4.TRS(bounds.min, Quaternion.identity, scale);
 
+            isBusy = true;
             if (Application.isPlaying)
             {
                 GenerateMeshAsync();
@@ -88,6 +98,8 @@ namespace MarchingCubes.Generator
             //mesh.SetColors(colors);
 
             mesh.RecalculateBounds();
+
+            isBusy = false;
         }
 
         private void GenerateMeshAsync()
@@ -112,9 +124,11 @@ namespace MarchingCubes.Generator
             //mesh.SetColors(colors);
             
             mesh.RecalculateBounds();
+
+            isBusy = false;
         }
 
-        object locker = new object();
+        readonly object locker = new object();
         void GenerateMeshInternalAsync()
         {
             cache.Validate(resolution);
@@ -127,21 +141,27 @@ namespace MarchingCubes.Generator
             
             var m = resolution.x * resolution.y * resolution.z;
             var ryz = resolution.y * resolution.z;
-            Parallel.For(0, m, Iterate);
-
+            
+            //Parallel.For(0, m, Iterate);
+            for (int i = 0; i < m; i++)
+            {
+                Iterate(i);
+            }
             void Iterate(int n)
             {
-                int i = n / ryz;
-                int j = (n / resolution.z) % resolution.y;
-                int k = n % resolution.z;
+                var i = n / ryz;
+                var j = (n / resolution.z) % resolution.y;
+                var k = n % resolution.z;
 
                 var cellIndex = new Vec3Int(i, j, k);
 
-                int indexMask = getIndexMask(cellIndex);
+                var indexMask = getIndexMask(cellIndex);
                 var trianglesInCell = MarchingCubesLookupTable.TrianglesData[indexMask];
 
                 var trianglesGroupsCount = trianglesInCell.verticesIndices.Length / 3;
-                Parallel.For(0, trianglesGroupsCount, tgi => 
+                
+                //Parallel.For(0, trianglesGroupsCount, tgi => 
+                for (int tgi = 0; tgi < trianglesGroupsCount; tgi++)
                 {
                     lock (locker)
                     for (var ti = 0; ti < 3; ti++)
@@ -159,37 +179,37 @@ namespace MarchingCubes.Generator
                             var worldSpacePosition = gridToWorldMatrix.MultiplyPoint3x4(gridSpacePosition);
 
                             var newInd = vertices.Count;
-                            vertices.Add(worldSpacePosition);
+                            vertices.Add(worldSpacePosition - finalOffset);
                             triangles.Add(newInd);
                             normals.Add(getNormal(gridSpacePosition));
 
                             cache.SetVertexIndex(cellIndex, tv, newInd);
                         }
                     }
-                });
+                } //);
             }
 
             done = true;
         }
-
-
+        
         private int getIndexMask(Vec3Int ijk)
         {
             var result = 0;
 
-            Parallel.For(0, 8, Iterate);
+            //Parallel.For(0, 8, Iterate);
+            for (int i = 0; i < 8; i++) Iterate(i);
 
             return result;
 
             void Iterate(int i)
             {
-                var x = (i & 1) >= 1 ? 1 : 0;
-                var y = (i & 2) >= 1 ? 1 : 0;
-                var z = (i & 4) >= 1 ? 1 : 0;
+                var x = (i & 1) == 1 ? 1 : 0;
+                var y = (i & 2) == 2 ? 1 : 0;
+                var z = (i & 4) == 4 ? 1 : 0;
 
                 var sdf = getCachedSDFInCell(ijk + new Vec3Int(x, y, z));
 
-                if (sdf <= 0)
+                if (sdf < 0)
                 {
                     result |= 1 << i;
                 }
@@ -204,10 +224,12 @@ namespace MarchingCubes.Generator
                 case 1: return new Vector3(0, g(ijk, Vec3Int.up), 0);
                 case 2: return new Vector3(g(ijk + Vec3Int.up, Vec3Int.right), 1, 0);
                 case 3: return new Vector3(1, g(ijk + Vec3Int.right, Vec3Int.up), 0);
+                
                 case 4: return new Vector3(0, 1, g(ijk + Vec3Int.up, Vec3Int.forward));
                 case 5: return new Vector3(1, 1, g(ijk + new Vec3Int(1, 1, 0), Vec3Int.forward));
                 case 6: return new Vector3(1, 0, g(ijk + Vec3Int.right, Vec3Int.forward));
                 case 7: return new Vector3(0, 0, g(ijk, Vec3Int.forward));
+                
                 case 8: return new Vector3(g(ijk + Vec3Int.forward, Vec3Int.right), 0, 1);
                 case 9: return new Vector3(0, g(ijk + Vec3Int.forward, Vec3Int.up), 1);
                 case 10: return new Vector3(g(ijk + new Vec3Int(0, 1, 1), Vec3Int.right), 1, 1);
@@ -218,7 +240,11 @@ namespace MarchingCubes.Generator
             
             float f(float a, float b)
             {
-                return a / (a - b);
+                float res = a / (a - b);
+                //res = Mathf.Clamp01(res);
+                if (res < 0 || res > 1) 
+                    ;
+                return res;
             }
 
             float g(Vec3Int ind, Vec3Int offset)
@@ -245,13 +271,17 @@ namespace MarchingCubes.Generator
             new Vector3(h, h, h)
         };
 
-        object calculateNormalLocker = new object();
+        readonly object calculateNormalLocker = new object();
 
         Vector3 getNormal(Vector3 p) // for function f(p)
         {
-            Vector3 sum = Vector3.zero;
+            var sum = Vector3.zero;
 
-            Parallel.For(0, 4, Iterate);
+            //Parallel.For(0, 4, Iterate);
+            for (int i = 0; i < 4; i++)
+            {
+                Iterate(i);
+            }
 
             var normal = sum.normalized;
             return normal;
